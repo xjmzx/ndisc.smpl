@@ -28,6 +28,7 @@ import { clearIdentity } from "./lib/nostr";
 import { NostrPanel } from "./components/NostrPanel";
 import { InfoPanel } from "./components/InfoPanel";
 import { BounceStatus, type BounceView } from "./components/BounceStatus";
+import { ToolbarIconButton } from "./components/ToolbarIconButton";
 import type { AudioFile, AudioInfo } from "./lib/tauri";
 import { renderMix } from "./lib/tauri";
 import { loadIdentity, type Identity } from "./lib/nostr";
@@ -634,19 +635,23 @@ export default function App() {
             <Sliders size={12} />
             edits
           </button>
-          {/* Forget-identity chip — only rendered when logged in
-              (matches ndisc's header pattern). Sign-in lives in the
-              Publish · Nostr panel where the KeyRound icon sits. */}
+          {/* nostr identity group — forget-identity, divider-separated from
+              the app-work controls per the suite grammar; only when signed in.
+              Now the shared mauve-tone ToolbarIconButton (was a one-off
+              solid-mauve button). nsmpl is single-view, so there is no
+              view-switch group after this. Sign-in lives in the Publish ·
+              Nostr panel where the KeyRound icon sits. */}
           {identity && (
-            <button
-              type="button"
-              onClick={handleForgetIdentity}
-              title="Signed in — click to forget the nsec from the OS keychain"
-              aria-label="Forget identity"
-              className="px-2.5 py-2 rounded-md text-xs font-mono inline-flex items-center gap-1.5 transition-colors bg-mauve text-bg hover:bg-mauve/80 cursor-pointer"
-            >
-              <LogOut size={12} />
-            </button>
+            <>
+              <span className="w-px h-6 bg-surface shrink-0" aria-hidden="true" />
+              <ToolbarIconButton
+                tone="mauve"
+                title="Signed in — click to forget the nsec from the OS keychain"
+                onClick={handleForgetIdentity}
+              >
+                <LogOut size={14} />
+              </ToolbarIconButton>
+            </>
           )}
         </div>
       </header>
