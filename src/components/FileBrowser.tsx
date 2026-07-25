@@ -944,7 +944,7 @@ export function FileBrowser({
                     <span className="shrink-0 flex items-center justify-end gap-1.5">
                       {fld.videoCount > 0 && (
                         <span
-                          className="inline-flex items-center gap-0.5 text-mauve"
+                          className="inline-flex items-center gap-0.5 text-mauve/60"
                           title={`${fld.videoCount} video file${fld.videoCount === 1 ? "" : "s"}`}
                         >
                           <Film size={11} className="shrink-0" />
@@ -1006,7 +1006,7 @@ export function FileBrowser({
                     {f.isVideo && (
                       <Film
                         size={11}
-                        className="shrink-0 text-mauve"
+                        className="shrink-0 text-mauve/60"
                         aria-label="video"
                       />
                     )}
