@@ -1,7 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
-  AudioWaveform,
-  Disc3,
   FileDown,
   KeyRound,
   Loader2,
@@ -112,6 +110,14 @@ function shortNpub(npub: string): string {
 
 type TrackIdx = 0 | 1;
 type TrackPair<T> = [T, T];
+
+// Suite rule (n-suite headers): the version chip shows only
+// major.minor.patch; any pre-release/build suffix (…-beta.2, +build) drops
+// to the tooltip so the chip keeps a fixed, consistent width as releases
+// move from 0.2.0-beta.2 toward 1.3.1.
+function shortVersion(v: string): string {
+  return v.split(/[-+]/)[0];
+}
 
 export default function App() {
   // Per-track state. FileBrowser clicks route to `focused`, and the
@@ -564,10 +570,25 @@ export default function App() {
               className="hidden md:inline-flex items-center px-2.5 py-2
                          rounded-md bg-surface text-mauve font-mono text-xs
                          shrink-0"
+              title={`v${appVersion}`}
             >
-              v{appVersion}
+              v{shortVersion(appVersion)}
             </span>
           )}
+          {/* Density selector lives in the left identity zone beside the
+              version, bare (no icon/label) — shared placement + styling with
+              ntree (SUITE.md § Top-bar grammar). */}
+          <Segmented
+            label="density"
+            bare
+            value={density}
+            options={[
+              { value: "super-slim", label: "super" },
+              { value: "slim", label: "slim" },
+              { value: "wide", label: "wide" },
+            ]}
+            onChange={setDensity}
+          />
         </div>
 
         {/* Master Control — moved up into the header's centre column (where
@@ -596,19 +617,8 @@ export default function App() {
             grid track. */}
         <div className="hidden md:flex items-center gap-2 shrink-0 justify-self-end">
           <Segmented
-            label="wave"
-            icon={<AudioWaveform size={14} />}
-            value={density}
-            options={[
-              { value: "super-slim", label: "super" },
-              { value: "slim", label: "slim" },
-              { value: "wide", label: "wide" },
-            ]}
-            onChange={setDensity}
-          />
-          <Segmented
-            label="decks"
-            icon={<Disc3 size={14} />}
+            label="tracks"
+            bare
             value={tracksVisible}
             options={[
               { value: 1, label: "1" },
@@ -962,30 +972,41 @@ function Segmented<T extends string | number>({
   value,
   options,
   onChange,
+  bare,
 }: {
   // `label` is used for tooltip + a11y; not rendered visibly when an
-  // icon prefix is supplied.
+  // icon prefix is supplied, or at all when `bare`.
   label: string;
   icon?: ReactNode;
   value: T;
   options: { value: T; label: string }[];
   onChange: (v: T) => void;
+  // `bare` drops the icon/label prefix entirely — just the segmented
+  // buttons (`super | slim | wide`, `1 | 2`). The label rides on the
+  // wrapper as tooltip + a11y so nothing is lost. Shared look across
+  // ntree/nsmpl (SUITE.md § Top-bar grammar).
+  bare?: boolean;
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
-      {icon ? (
-        <span
-          className="text-muted/70 inline-flex items-center"
-          title={label}
-          aria-label={label}
-        >
-          {icon}
-        </span>
-      ) : (
-        <span className="hidden lg:inline text-muted/70 text-[10px] uppercase tracking-wide">
-          {label}
-        </span>
-      )}
+    <span
+      className="inline-flex items-center gap-1.5"
+      title={bare ? label : undefined}
+      aria-label={bare ? label : undefined}
+    >
+      {!bare &&
+        (icon ? (
+          <span
+            className="text-muted/70 inline-flex items-center"
+            title={label}
+            aria-label={label}
+          >
+            {icon}
+          </span>
+        ) : (
+          <span className="hidden lg:inline text-muted/70 text-[10px] uppercase tracking-wide">
+            {label}
+          </span>
+        ))}
       <span className="inline-flex rounded-md overflow-hidden bg-surface">
         {options.map((opt, i) => (
           <button
