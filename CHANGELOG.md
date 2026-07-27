@@ -17,7 +17,19 @@ below. Where it does share a contract with the suite, that is named in the entry
 > than notes taken at the time. Treat the git log as canonical if they ever
 > disagree. **0.3.0-beta.1** and **0.3.0-beta.6** were never tagged.
 
-## 0.4.0-beta.1 — unreleased
+## 0.4.0-beta.2 — 2026-07-27
+
+### Suite top-bar grammar + version chip
+- The version chip shows only `major.minor.patch` (suffix → tooltip,
+  `shortVersion`). The density and track-count selectors render as **bare
+  Segmented** controls in the header identity zone (no icon/label prefix), shared
+  placement + styling with ntree per the suite top-bar grammar; mauve active state.
+
+### Also
+- Figma icon refresh (2026-07-25); monochrome brand lockup; the video marker muted
+  to the suite muted-mauve convention.
+
+## 0.4.0-beta.1 — 2026-07-14
 
 ### Clip-coverage bars in the Library
 - Browsing a release folder now shows a **clip-coverage bar** on each clip: the
