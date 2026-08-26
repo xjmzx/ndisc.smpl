@@ -6,7 +6,7 @@ ICONDIR ?= $(PREFIX)/share/icons/hicolor/scalable/apps
 DESKTOP_OUT := $(APPDIR)/smpl-tool.desktop
 TAURI_BIN   := src-tauri/target/release/smpl-tool
 
-.PHONY: help deps dev build install uninstall check clean icons
+.PHONY: help deps dev build install uninstall check clean icons version
 
 help:
 	@echo "Targets:"
@@ -18,6 +18,7 @@ help:
 	@echo "  make uninstall  remove what 'install' put down"
 	@echo "  make check      typecheck + cargo check (no build)"
 	@echo "  make clean      remove dist/ and src-tauri/target/"
+	@echo "  make version V=0.1.2   bump the version in all five files at once"
 
 deps:
 	npm install
@@ -79,3 +80,22 @@ uninstall:
 
 clean:
 	rm -rf dist src-tauri/target
+
+# Bump every file that carries the version, in one step.
+#
+# There are five, and nothing in a build complains when they disagree: two in
+# package-lock.json, one each in package.json, Cargo.toml and tauri.conf.json,
+# plus the entry Cargo.lock keeps for this crate. Hand-editing a subset is the
+# whole failure mode — six repositories in this suite had drifted that way, one
+# of them four releases back, and npm's lockfile does not self-heal because
+# nothing rewrites it until someone runs `npm install`.
+#
+#   make version V=0.1.2
+version:
+	@test -n "$(V)" || { echo "usage: make version V=0.1.2" >&2; exit 2; }
+	@npm version --no-git-tag-version --allow-same-version "$(V)" >/dev/null
+	@sed -i.bak -E 's/^version = ".*"/version = "$(V)"/' src-tauri/Cargo.toml && rm -f src-tauri/Cargo.toml.bak
+	@python3 -c 'import re,sys; v=sys.argv[1]; p="src-tauri/tauri.conf.json"; s=open(p).read(); s2,k=re.subn(r"^(  \"version\"\s*:\s*)\"[^\"]*\"", lambda m: m.group(1)+"\""+v+"\"", s, count=1, flags=re.M); open(p,"w").write(s2) if k==1 else sys.exit("no top-level version key in "+p)' "$(V)"
+	@name=$$(grep -m1 '^name = ' src-tauri/Cargo.toml | cut -d'"' -f2); python3 -c 'import re,sys; n,v=sys.argv[1],sys.argv[2]; p="src-tauri/Cargo.lock"; s=open(p).read(); s2,k=re.subn(r"(\[\[package\]\]\nname = \""+re.escape(n)+r"\"\nversion = )\"[^\"]*\"", lambda m: m.group(1)+"\""+v+"\"", s, count=1); open(p,"w").write(s2) if k==1 else sys.exit("no Cargo.lock entry for "+n)' "$$name" "$(V)"
+	@echo "version set to $(V) in all five places:"
+	@git diff --stat -- package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json
