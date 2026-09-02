@@ -1,9 +1,13 @@
 name: Release
 
 # Fires on any pushed tag starting with `v` (e.g. v0.1.0, v0.2.0-beta) and
-# can also be kicked off manually via the Actions tab. Produces a draft
-# GitHub Release with .deb and .AppImage assets for Linux x86_64; the user
-# reviews and publishes the draft when satisfied.
+# can also be kicked off manually via the Actions tab. Publishes a GitHub
+# Release with .deb and .AppImage for Linux x86_64 and a .dmg for macOS
+# arm64.
+#
+# The jobs cannot share a runner — each build needs its own platform's
+# WebView — so the Linux job creates the release and owns its notes, and
+# every other job only appends its own asset to it.
 
 on:
   push:
@@ -91,3 +95,65 @@ jobs:
           files: |
             src-tauri/target/release/bundle/appimage/*.AppImage
             src-tauri/target/release/bundle/deb/*.deb
+
+  build-macos-arm64:
+    name: Build macOS (arm64)
+    # Runs after the Linux job so the release (and its notes) already exist;
+    # this job only appends the .dmg to it.
+    needs: build-linux-x86_64
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v6
+
+      # No apt step here: the keyring crate uses the Keychain on macOS and
+      # WKWebView ships with the OS.
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install npm deps
+        run: npm ci
+
+      # Unsigned and un-notarised, like the rest of the suite: Gatekeeper
+      # refuses the first launch until the app is opened from the context
+      # menu, or cleared with
+      # `xattr -dr com.apple.quarantine /Applications/smpl-tool.app`.
+      #
+      # ffmpeg / ffprobe / aubio stay runtime tools the user installs, as on
+      # Linux — but a Finder-launched .app inherits a minimal PATH without
+      # /opt/homebrew/bin, so they will not resolve until that is fixed.
+      - name: Build Tauri bundle (.dmg)
+        run: npm run tauri build -- --bundles dmg
+
+      # Reuse the Linux job's tag logic verbatim.
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Appends the .dmg to the release the Linux job already published. No
+      # `name`/`generate_release_notes` here — the Linux job owns those; this
+      # step only adds its asset so the two jobs don't clobber each other.
+      # `prerelease` is repeated so this update states the same flag the
+      # Linux job set, rather than leaving it to the action's default.
+      - name: Upload macOS bundle to release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
+          files: |
+            src-tauri/target/release/bundle/dmg/*.dmg
