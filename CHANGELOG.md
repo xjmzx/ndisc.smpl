@@ -17,6 +17,39 @@ below. Where it does share a contract with the suite, that is named in the entry
 > than notes taken at the time. Treat the git log as canonical if they ever
 > disagree. **0.3.0-beta.1** and **0.3.0-beta.6** were never tagged.
 
+## 0.4.0-beta.3 — 2026-09-02
+
+### macOS builds
+
+- The release workflow now builds a **macOS arm64 `.dmg`** alongside the Linux
+  `.deb`/`.AppImage`. The macOS job runs after the Linux one and only
+  appends its asset, so the Linux job stays the single owner of the release
+  name and notes.
+- Unsigned and un-notarised, like the rest of the suite. Gatekeeper blocks the
+  first launch until the app is opened from the context menu, or cleared with
+  `xattr -dr com.apple.quarantine /Applications/smpl-tool.app`.
+- **This dmg is untested.** It is known to build; it is not known to run. No
+  macOS build of this app has been launched.
+
+### Fixed
+
+- **External tools were invisible to an installed macOS `.app`.** ffmpeg, ffprobe and aubio were
+  spawned by bare name, which searches the process PATH — and an app launched
+  from Finder, Spotlight or the Dock inherits launchd's PATH, not a shell's, so
+  Homebrew's `/opt/homebrew/bin` is not on it. `brew install ffmpeg` followed by
+  the app insisting it was "not found on PATH" was the symptom. A new vendored
+  `src-tauri/src/tools.rs` resolves each tool to an absolute path
+  (`NDISC_TOOL_<NAME>` override, then PATH, then the well-known directories),
+  and the not-found message now names the package rather than the binary, says
+  where it looked, and gives the override to set. Only successful lookups are
+  cached, so installing a missing tool takes effect without a restart. Linux is
+  unaffected — ffmpeg lands in `/usr/bin`, which is on every PATH — which is why
+  this went unseen in apps developed there.
+- `workflow_dispatch` checked out the default branch while publishing to the
+  tag it was handed, so a manual run uploaded main-built artifacts to an older
+  tag's release. Checkout now pins `ref` to the tag being released. Tag pushes
+  were never affected.
+
 ## 0.4.0-beta.2 — 2026-07-27
 
 ### Suite top-bar grammar + version chip
