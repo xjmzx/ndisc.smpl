@@ -31,6 +31,14 @@ jobs:
       # (checkout v6, setup-node v6, action-gh-release v3). GitHub
       # deprecated the Node 20 action runtime in 2025.
       - uses: actions/checkout@v6
+        with:
+          # Build the ref being released, not whatever the workflow ran from.
+          # A workflow_dispatch names the tag to publish, but checkout defaults
+          # to the branch the run was started on — so without this the build
+          # comes from main and its artifacts get uploaded to that tag's
+          # release, which then holds binaries the tag never contained. A tag
+          # push is unaffected: github.ref is already refs/tags/<tag>.
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       # Same packages listed in the README under "Install dependencies"
       # plus libsecret-1-dev so the keyring crate links.
@@ -104,6 +112,8 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       # No apt step here: the keyring crate uses the Keychain on macOS and
       # WKWebView ships with the OS.
