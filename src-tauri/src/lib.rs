@@ -1,9 +1,12 @@
 // Tauri commands for smpl-tool. See https://tauri.app/develop/calling-rust/
 
+// External tools (ffmpeg/ffprobe/aubio) are resolved to an absolute path
+// before spawning — see tools.rs for why PATH alone is not enough.
+mod tools;
+
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::time::SystemTime;
 
 use keyring::Entry;
@@ -355,16 +358,10 @@ fn next_available_output_path(src: &Path, tag: &str) -> Result<PathBuf, String> 
 /// Run an ffmpeg invocation, surfacing the stderr tail on failure and a
 /// friendly hint if the binary is missing.
 fn run_ffmpeg(args: &[&str]) -> Result<(), String> {
-    let output = Command::new("ffmpeg")
+    let output = tools::command("ffmpeg")?
         .args(args)
         .output()
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                "ffmpeg not found on PATH — install ffmpeg to enable edits".to_string()
-            } else {
-                format!("ffmpeg launch failed: {e}")
-            }
-        })?;
+        .map_err(|e| format!("ffmpeg launch failed: {e}"))?;
     if !output.status.success() {
         return Err(format!(
             "ffmpeg failed: {}",
@@ -377,7 +374,7 @@ fn run_ffmpeg(args: &[&str]) -> Result<(), String> {
 /// Probe a source file's duration in seconds via ffprobe. Needed by
 /// prune to decide whether the region touches a file boundary.
 fn probe_duration(src: &str) -> Result<f64, String> {
-    let output = Command::new("ffprobe")
+    let output = tools::command("ffprobe")?
         .args([
             "-v",
             "error",
@@ -388,13 +385,7 @@ fn probe_duration(src: &str) -> Result<f64, String> {
             src,
         ])
         .output()
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                "ffprobe not found on PATH — install ffmpeg to enable edits".to_string()
-            } else {
-                format!("ffprobe launch failed: {e}")
-            }
-        })?;
+        .map_err(|e| format!("ffprobe launch failed: {e}"))?;
     if !output.status.success() {
         return Err(format!(
             "ffprobe failed: {}",
@@ -816,16 +807,13 @@ fn detect_bpm(
         None => src.clone(),
     };
 
-    let output = Command::new("aubio")
-        .args(["tempo", &analysis_path])
-        .output()
-        .map_err(|e| {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                "aubio not found on PATH — install aubio-tools".to_string()
-            } else {
-                format!("aubio launch failed: {e}")
-            }
-        });
+    // Not `?` — the temp region file below must be cleaned up on every path,
+    // so the Result is held and unwrapped after that.
+    let output = tools::command("aubio").and_then(|mut cmd| {
+        cmd.args(["tempo", &analysis_path])
+            .output()
+            .map_err(|e| format!("aubio launch failed: {e}"))
+    });
 
     // Always clean up the temp region file, even on failure paths.
     if let Some(p) = region_temp {
