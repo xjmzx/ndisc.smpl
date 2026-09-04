@@ -114,6 +114,8 @@ fn install_hint(name: &str) -> &'static str {
         "ffmpeg" | "ffprobe" => {
             if cfg!(target_os = "macos") {
                 "install it with `brew install ffmpeg`"
+            } else if cfg!(target_os = "windows") {
+                "install it with `winget install ffmpeg`, then restart the app so it sees PATH"
             } else {
                 "install it with your package manager (Debian/Ubuntu: `apt install ffmpeg`)"
             }
@@ -121,6 +123,8 @@ fn install_hint(name: &str) -> &'static str {
         "aubio" => {
             if cfg!(target_os = "macos") {
                 "install it with `brew install aubio`"
+            } else if cfg!(target_os = "windows") {
+                "aubio ships no Windows build — set NDISC_TOOL_AUBIO to one you built"
             } else {
                 "install it with your package manager (Debian/Ubuntu: `apt install aubio-tools`)"
             }
@@ -144,6 +148,30 @@ pub fn not_found_message(name: &str) -> String {
     msg
 }
 
+/// Spawn flag that stops Windows giving each child its own console window.
+///
+/// Every tool resolved here is a console program, so without this Windows
+/// creates a console per spawn: it flashes over the app and takes focus. A pass
+/// that shells out once per file then looks exactly like the window redrawing
+/// itself in a loop — which is how this same fault was first reported against
+/// `gtrack`, and it cost a while to recognise as a subprocess problem rather
+/// than a UI one. Nothing to suppress on the other platforms.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// `Command::new`, minus the console window on Windows. Every spawn in this
+/// module and its callers should go through here rather than `Command::new`.
+pub fn quiet_command<S: AsRef<std::ffi::OsStr>>(program: S) -> Command {
+    #[allow(unused_mut)]
+    let mut cmd = Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd
+}
+
 /// A `Command` for `name` with its path already resolved, or a message fit to
 /// show the user. Call sites keep their own failure handling for everything
 /// that can go wrong *after* a successful spawn.
@@ -156,7 +184,7 @@ pub fn not_found_message(name: &str) -> String {
 #[allow(dead_code)]
 pub fn command(name: &str) -> Result<Command, String> {
     match resolve(name) {
-        Some(path) => Ok(Command::new(path)),
+        Some(path) => Ok(quiet_command(path)),
         None => Err(not_found_message(name)),
     }
 }

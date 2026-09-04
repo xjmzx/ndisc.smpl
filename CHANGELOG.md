@@ -17,6 +17,28 @@ below. Where it does share a contract with the suite, that is named in the entry
 > than notes taken at the time. Treat the git log as canonical if they ever
 > disagree. **0.3.0-beta.1** and **0.3.0-beta.6** were never tagged.
 
+## Unreleased
+
+### Fixed
+
+- **Spawning ffmpeg no longer flashes a console window on Windows.** Windows
+  gives every console program its own console, so each spawn popped one over the
+  app and took focus; a pass that shells out once per file looked exactly like
+  the window redrawing itself in a loop. `tools.rs` now builds its Commands
+  through `quiet_command()`, which sets `CREATE_NO_WINDOW`. Carried here to keep
+  the file byte-identical across nplay, nsmpl and ntree, as its header requires.
+- `install_hint` stopped telling Windows users to `apt install ffmpeg`.
+
+### Windows builds — under consideration, not offered
+
+- The suite's release workflow can build a **Windows x86_64 NSIS installer**, and
+  ndisc, nping, nplay and nchat now do. **nsmpl deliberately does not yet.**
+- The app compiles clean on Windows (`cargo check` against a real Windows
+  toolchain), so this is not a portability blocker — but it has never been built,
+  installed or run there, and shipping an installer nobody has launched would
+  claim more than is known. The job is a copy of ndisc's and can be added when
+  someone is in a position to test the result.
+
 ## 0.4.0-beta.3 — 2026-09-02
 
 ### macOS builds
